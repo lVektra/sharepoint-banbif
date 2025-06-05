@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Phishing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            min-height: 100vh;
+        }
+        
+        .card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            height: 280px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .result-message {
+            transition: all 0.5s ease;
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        
+        .result-message.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .card-content {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            animation: confetti-fall 3s ease forwards;
+        }
+        
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-50px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Cabecera del juego -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">¿Cuál es phishing?</h1>
+            <p class="text-lg text-indigo-100">Selecciona la tarjeta que muestra un ejemplo de phishing</p>
+        </div>
+        
+        <!-- Contador de puntuación -->
+        <div class="bg-white bg-opacity-20 rounded-lg p-4 mb-8 flex justify-between items-center">
+            <div>
+                <span class="text-white font-medium">Puntuación: </span>
+                <span id="score" class="text-white font-bold">0</span>
+            </div>
+            <div>
+                <span class="text-white font-medium">Nivel: </span>
+                <span id="level" class="text-white font-bold">1</span>
+            </div>
+            <div class="w-1/2">
+                <div class="bg-white bg-opacity-30 h-3 rounded-full">
+                    <div id="progress-bar" class="bg-green-400 h-3 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjetas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div id="card1" class="card bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="card-content p-5">
+                </div>
+            </div>
+            
+            <div id="card2" class="card bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="card-content p-5">
+                </div>
+            </div>
+            
+            <div id="card3" class="card bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="card-content p-5">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mensaje de resultado -->
+        <div id="result" class="result-message mt-8 p-6 rounded-xl text-center">
+            <p id="result-text" class="text-xl font-bold"></p>
+            <p id="result-explanation" class="mt-2"></p>
+        </div>
+        
+        <!-- Botón para siguiente pregunta -->
+        <div class="text-center mt-8">
+            <button id="next-button" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105 opacity-0 pointer-events-none">
+                Siguiente pregunta
+            </button>
+        </div>
+    </div>
+    
+    <div id="confetti-container"></div>
+    
+    <script>
+        // Datos del juego
+        const phishingExamples = [
+            {
+                legitimate: {
+                    title: "Banco Nacional",
+                    content: "Estimado cliente, le informamos que hemos actualizado nuestros términos de servicio. Puede revisarlos en nuestra página oficial: www.banconacional.com",
+                    sender: "info@banconacional.com",
+                    details: "Enviado: Hoy, 10:30 AM"
+                },
+                phishing: {
+                    title: "Banco Nacional - Urgente",
+                    content: "Su cuenta ha sido bloqueada! Necesitamos verificar su identidad inmediatamente. Haga clic aquí: www.banco-nacional-verificar.com",
+                    sender: "secure@banco-nacional-verify.net",
+                    details: "Enviado: Hoy, 10:45 AM"
+                },
+                explanation: "El correo de phishing usa un dominio sospechoso, crea urgencia y tiene errores gramaticales."
+            },
+            {
+                legitimate: {
+                    title: "Amazon - Tu pedido #45982",
+                    content: "Gracias por tu compra. Tu pedido ha sido enviado y llegará el 15 de mayo. Seguimiento: www.amazon.com/tracking",
+                    sender: "shipping@amazon.com",
+                    details: "Enviado: Ayer, 14:20 PM"
+                },
+                phishing: {
+                    title: "Amazon - Problema con tu pago",
+                    content: "Detectamos un problema con su método de pago. Actualice sus datos en 24h o su cuenta será suspendida: amaz0n-secure-verify.com",
+                    sender: "amazon-support@amzn-secure.net",
+                    details: "Enviado: Hoy, 03:15 AM"
+                },
+                explanation: "El correo de phishing usa un dominio falso (amaz0n-secure-verify.com), crea urgencia y amenaza con suspender la cuenta."
+            },
+            {
+                legitimate: {
+                    title: "Google - Verificación de seguridad",
+                    content: "Detectamos un inicio de sesión desde un nuevo dispositivo en Madrid. Si fuiste tú, puedes ignorar este mensaje.",
+                    sender: "no-reply@google.com",
+                    details: "Enviado: Hoy, 09:10 AM"
+                },
+                phishing: {
+                    title: "Google - Alerta de seguridad!!",
+                    content: "Su cuenta Google ha sido comprometida! Haga clic aquí para restablecer su contraseña inmediatamente: security-google.account-verify.com",
+                    sender: "google-team@mail-secure.com",
+                    details: "Enviado: Hoy, 02:25 AM"
+                },
+                explanation: "El correo de phishing usa signos de exclamación excesivos, un dominio falso y crea urgencia innecesaria."
+            },
+            {
+                legitimate: {
+                    title: "Netflix - Nuevo inicio de sesión",
+                    content: "Hola, detectamos un nuevo inicio de sesión en tu cuenta desde un dispositivo Windows. ¿Fuiste tú?",
+                    sender: "info@netflix.com",
+                    details: "Enviado: Hoy, 18:45 PM"
+                },
+                phishing: {
+                    title: "Netflix - Su cuenta será suspendida",
+                    content: "Estimado cliente, su información de pago ha expirado. Actualice sus datos ahora: netflix-accounts-verify.com",
+                    sender: "support@netflix-billing.org",
+                    details: "Enviado: Hoy, 22:05 PM"
+                },
+                explanation: "El correo de phishing usa un dominio falso (netflix-accounts-verify.com) y crea urgencia con amenazas de suspensión."
+            },
+            {
+                legitimate: {
+                    title: "PayPal - Recibo de transacción",
+                    content: "Has enviado un pago de $50.00 USD a María García. ID de transacción: 78945612",
+                    sender: "service@paypal.com",
+                    details: "Enviado: Ayer, 16:30 PM"
+                },
+                phishing: {
+                    title: "PayPal - Transacción sospechosa de $750",
+                    content: "Hemos detectado una transacción sospechosa en su cuenta. Si no la reconoce, haga clic aquí: paypal-secure-center.com/dispute",
+                    sender: "paypal-support@secure-payments.com",
+                    details: "Enviado: Hoy, 04:15 AM"
+                },
+                explanation: "El correo de phishing usa un dominio falso, menciona una cantidad grande de dinero para alarmar y tiene un remitente sospechoso."
+            }
+        ];
+        
+        let currentLevel = 0;
+        let score = 0;
+        let correctCardIndex = 0;
+        
+        // Elementos del DOM
+        const card1 = document.getElementById('card1');
+        const card2 = document.getElementById('card2');
+        const card3 = document.getElementById('card3');
+        const resultDiv = document.getElementById('result');
+        const resultText = document.getElementById('result-text');
+        const resultExplanation = document.getElementById('result-explanation');
+        const nextButton = document.getElementById('next-button');
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const progressBar = document.getElementById('progress-bar');
+        const confettiContainer = document.getElementById('confetti-container');
+        
+        // Iniciar juego
+        startGame();
+        
+        function startGame() {
+            loadLevel(currentLevel);
+            
+            card1.addEventListener('click', () => checkAnswer(0));
+            card2.addEventListener('click', () => checkAnswer(1));
+            card3.addEventListener('click', () => checkAnswer(2));
+            nextButton.addEventListener('click', nextLevel);
+        }
+        
+        function loadLevel(level) {
+            if (level >= phishingExamples.length) {
+                showGameOver();
+                return;
+            }
+            
+            // Actualizar nivel y barra de progreso
+            levelElement.textContent = level + 1;
+            const progressPercentage = (level / phishingExamples.length) * 100;
+            progressBar.style.width = `${progressPercentage}%`;
+            
+            // Ocultar resultado anterior y botón siguiente
+            resultDiv.classList.remove('show');
+            resultDiv.classList.remove('bg-green-100', 'bg-red-100');
+            nextButton.classList.add('opacity-0', 'pointer-events-none');
+            
+            // Seleccionar ejemplo actual
+            const currentExample = phishingExamples[level];
+            
+            // Decidir aleatoriamente qué tarjeta tendrá el ejemplo de phishing
+            correctCardIndex = Math.floor(Math.random() * 3);
+            
+            // Crear contenido para las tarjetas
+            const cards = [card1, card2, card3];
+            cards.forEach((card, index) => {
+                const cardContent = card.querySelector('.card-content');
+                const isPhishing = index === correctCardIndex;
+                const example = isPhishing ? currentExample.phishing : currentExample.legitimate;
+                
+                cardContent.innerHTML = `
+                    <div class="border-b pb-2 mb-3 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-800">${example.title}</h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                    </div>
+                    <div class="mb-4 flex-grow">
+                        <p class="text-gray-700">${example.content}</p>
+                    </div>
+                    <div class="mt-auto">
+                        <p class="text-sm text-gray-500 font-medium">${example.sender}</p>
+                        <p class="text-xs text-gray-400">${example.details}</p>
+                    </div>
+                `;
+                
+                // Resetear estilos de las tarjetas
+                card.classList.remove('border-4', 'border-green-500', 'border-red-500');
+                card.classList.add('bg-white');
+            });
+        }
+        
+        function checkAnswer(selectedIndex) {
+            const cards = [card1, card2, card3];
+            const isCorrect = selectedIndex === correctCardIndex;
+            
+            // Deshabilitar clics en las tarjetas
+            cards.forEach(card => {
+                card.style.pointerEvents = 'none';
+            });
+            
+            // Mostrar resultado
+            if (isCorrect) {
+                score += 100;
+                scoreElement.textContent = score;
+                resultDiv.classList.add('bg-green-100', 'show');
+                resultText.textContent = '¡Correcto! Has identificado el phishing.';
+                resultText.className = 'text-xl font-bold text-green-700';
+                cards[correctCardIndex].classList.add('border-4', 'border-green-500');
+                createConfetti();
+            } else {
+                resultDiv.classList.add('bg-red-100', 'show');
+                resultText.textContent = '¡Incorrecto! No has identificado el phishing.';
+                resultText.className = 'text-xl font-bold text-red-700';
+                cards[selectedIndex].classList.add('border-4', 'border-red-500');
+                cards[correctCardIndex].classList.add('border-4', 'border-green-500');
+            }
+            
+            // Mostrar explicación
+            resultExplanation.textContent = phishingExamples[currentLevel].explanation;
+            
+            // Mostrar botón para siguiente pregunta
+            nextButton.classList.remove('opacity-0', 'pointer-events-none');
+        }
+        
+        function nextLevel() {
+            currentLevel++;
+            
+            // Habilitar clics en las tarjetas
+            const cards = [card1, card2, card3];
+            cards.forEach(card => {
+                card.style.pointerEvents = 'auto';
+            });
+            
+            loadLevel(currentLevel);
+        }
+        
+        function showGameOver() {
+            // Limpiar tarjetas
+            const cards = [card1, card2, card3];
+            cards.forEach(card => {
+                card.style.display = 'none';
+            });
+            
+            // Mostrar mensaje final
+            resultDiv.classList.add('bg-indigo-100', 'show');
+            resultText.textContent = `¡Juego completado! Puntuación final: ${score}`;
+            resultText.className = 'text-2xl font-bold text-indigo-700';
+            
+            if (score >= phishingExamples.length * 100) {
+                resultExplanation.textContent = '¡Perfecto! Eres un experto identificando phishing.';
+                createConfetti();
+            } else if (score >= phishingExamples.length * 60) {
+                resultExplanation.textContent = '¡Buen trabajo! Tienes buenas habilidades para detectar phishing.';
+            } else {
+                resultExplanation.textContent = 'Sigue practicando para mejorar tus habilidades de detección de phishing.';
+            }
+            
+            // Cambiar botón para reiniciar
+            nextButton.textContent = 'Jugar de nuevo';
+            nextButton.classList.remove('opacity-0', 'pointer-events-none');
+            nextButton.removeEventListener('click', nextLevel);
+            nextButton.addEventListener('click', resetGame);
+        }
+        
+        function resetGame() {
+            currentLevel = 0;
+            score = 0;
+            scoreElement.textContent = score;
+            
+            // Mostrar tarjetas de nuevo
+            const cards = [card1, card2, card3];
+            cards.forEach(card => {
+                card.style.display = 'block';
+                card.style.pointerEvents = 'auto';
+            });
+            
+            // Cambiar botón de nuevo
+            nextButton.textContent = 'Siguiente pregunta';
+            nextButton.removeEventListener('click', resetGame);
+            nextButton.addEventListener('click', nextLevel);
+            
+            loadLevel(currentLevel);
+        }
+        
+        function createConfetti() {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                
+                // Colores aleatorios para el confeti
+                const colors = ['#FFC700', '#FF0000', '#2E3191', '#41C0F0', '#8BC63E'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.backgroundColor = randomColor;
+                
+                // Posición aleatoria
+                confetti.style.left = Math.random() * 100 + 'vw';
+                
+                // Duración aleatoria
+                const duration = Math.random() * 3 + 2;
+                confetti.style.animationDuration = duration + 's';
+                
+                // Tamaño aleatorio
+                const size = Math.random() * 10 + 5;
+                confetti.style.width = size + 'px';
+                confetti.style.height = size + 'px';
+                
+                confettiContainer.appendChild(confetti);
+                
+                // Eliminar después de la animación
+                setTimeout(() => {
+                    confetti.remove();
+                }, duration * 1000);
+            }
+        }
+    </script>
+</body>
+</html>
